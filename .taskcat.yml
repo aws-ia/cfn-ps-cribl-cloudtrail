@@ -1,5 +1,5 @@
 project:
-  name: quickstart-cribl-cloudtrail
+  name: cfn-ps-cribl-cloudtrail
   owner: quickstart-eng@amazon.com
   package_lambda: false
   regions:
