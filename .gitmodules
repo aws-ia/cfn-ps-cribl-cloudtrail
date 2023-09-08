@@ -5,6 +5,3 @@
 	path = submodules/cfn-ps-aws-vpc
 	url = git@github.com:aws-ia/cfn-ps-aws-vpc.git
 	branch = main
-[submodule "lambda-copyzips"]
-	path = lambda-copyzips
-	url = git@github.com:aws-ia/lambda-copyzips.git
