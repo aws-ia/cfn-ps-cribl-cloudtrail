@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Template to build an s3 bucket for log storage (qs-1ti330r7u)
+
+Parameters:
+  RoleName:
+    Description: Role Name (To access S3 and SQS)
+    Type: String
+    Default: sqs_s3_full_access
+  # SQSName:
+  #   Description: SQS Name
+  #   Type: String
+  #   Default: s3-cloudtrail-notifications
+
+Resources:
+  SQSQueue:
+    Type: AWS::SQS::Queue
+
+  SQSAccessPolicy: 
+    Type: AWS::SQS::QueuePolicy
+    Properties: 
+      Queues: 
+        - !Ref SQSQueue
+      PolicyDocument: 
+        Statement:
+        - Action:
+            - 'SQS:SendMessage'
+          Effect: Allow
+          Resource: !GetAtt SQSQueue.Arn
+          Principal: 
+            Service: s3.amazonaws.com
+          Condition:
+              StringEquals:
+                'aws:SourceAccount':
+                  - !Ref "AWS::AccountId"
+
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: Private
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Queue: !GetAtt SQSQueue.Arn
+
+  IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join
+          - ''
+          - - !Ref AWS::Region
+            - '_'
+            - !Ref RoleName
+      Description: 'IAM Policy to access SQS and S3' 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: SQSReceive
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 
+                - 'SQS:ReceiveMessage'
+                - 'SQS:DeleteMessage'
+                - 'SQS:ChangeMessageVisibility'
+                - 'SQS:GetQueueAttributes'
+                - 'SQS:GetQueueUrl'
+                Resource: !GetAtt SQSQueue.Arn
+        - PolicyName: S3ReadWriteAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                - 'S3:GetObject'
+                - 'S3:ListBucket'
+                - 'S3:GetBucketLocation'
+                - 'S3:PutObject'
+                Resource: !GetAtt S3Bucket.Arn
+
+
+Outputs:
+  S3BucketName:
+    Value: !Ref S3Bucket
+    Description: Bucket name
+  S3BucketArn:
+    Value: !GetAtt S3Bucket.Arn
+    Description: ARN for the S3 Bucket used for storing CloudTrail.
+  SQSArn:
+    Value: !GetAtt SQSQueue.Arn
+    Description: ARN for the SQS Queue (used for configuring the S3 input in Cribl Stream).
+  AccessRoleArn:
+    Value: !GetAtt IAMRole.Arn
+    Description: ARN for the IAM Role to access the SQS queue and S3 bucket (used for configuring the S3 input in Cribl Stream).
